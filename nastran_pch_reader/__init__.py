@@ -64,6 +64,8 @@ class PchParser:
         # initiate current frame
         self.reset_current_frame()
 
+        is_header = True
+
         # start reading
         with open(filename, 'r') as pch:
             # read only first 72 characters from the punch file
@@ -72,10 +74,15 @@ class PchParser:
 
                 # reset all variables
                 if line.startswith('$TITLE   ='):
+                    is_header = False
                     # insert the last frame remaining in memory
                     self.insert_current_frame()
                     # reset the frame
                     self.reset_current_frame()
+
+                # skip everything before TITLE
+                if is_header:
+                    continue
 
                 # parse the subcase
                 if line.startswith('$SUBCASE ID ='):
