@@ -22,6 +22,7 @@ import cmath
 
 CONST_VALID_REQUESTS = ['ACCELERATION', 'DISPLACEMENTS', 'MPCF', 'SPCF', 'ELEMENT FORCES', 'ELEMENT STRAINS']
 
+
 def dispatch_parse(output, data_chunks):
     num = int(len(data_chunks) / 2)
     if len(data_chunks) % 2 != 0:
@@ -36,7 +37,7 @@ def dispatch_parse(output, data_chunks):
         return [data_chunks[i] for i in range(len(data_chunks))]
 
 
-def parse_data_chunks(request, output, entity_type_id, data_chunks):
+def parse_data_chunks(request, output, data_chunks):
     if request in CONST_VALID_REQUESTS:
         return dispatch_parse(output, data_chunks)
     else:
@@ -45,13 +46,13 @@ def parse_data_chunks(request, output, entity_type_id, data_chunks):
 
 class PchParser:
     def reset_current_frame(self):
-        self.current_data_chunks = []
+        self.cur_data_chunks = []
         self.is_frequency_response = False
         self.output_sort = 0
-        self.current_subcase = 0
-        self.current_output = 0
+        self.cur_subcase = 0
+        self.cur_output = 0
         self.current_frequency = 0
-        self.current_entity_id = 0
+        self.cur_entity_id = 0
         self.current_entity_type_id = 0
 
     def __init__(self, filename):
@@ -78,30 +79,30 @@ class PchParser:
 
                 # parse the subcase
                 if line.startswith('$SUBCASE ID ='):
-                    self.current_subcase = int(line[13:].strip())
-                    self.parsed_data['SUBCASES'].add(self.current_subcase)
+                    self.cur_subcase = int(line[13:].strip())
+                    self.parsed_data['SUBCASES'].add(self.cur_subcase)
 
                 # identify NASTRAN request
                 if line.startswith('$DISPLACEMENTS'):
-                    self.request = 'DISPLACEMENTS'
+                    self.cur_request = 'DISPLACEMENTS'
                 elif line.startswith('$ACCELERATION'):
-                    self.request = 'ACCELERATION'
+                    self.cur_request = 'ACCELERATION'
                 elif line.startswith('$MPCF'):
-                    self.request = 'MPCF'
+                    self.cur_request = 'MPCF'
                 elif line.startswith('$SPCF'):
-                    self.request = 'SPCF'
+                    self.cur_request = 'SPCF'
                 elif line.startswith('$ELEMENT FORCES'):
-                    self.request = 'ELEMENT FORCES'
+                    self.cur_request = 'ELEMENT FORCES'
                 elif line.startswith('$ELEMENT STRAINS'):
-                    self.request = 'ELEMENT STRAINS'
+                    self.cur_request = 'ELEMENT STRAINS'
 
                 # identify output type
                 if line.startswith('$REAL-IMAGINARY OUTPUT'):
-                    self.current_output = 'REAL-IMAGINARY'
+                    self.cur_output = 'REAL-IMAGINARY'
                 elif line.startswith('$MAGNITUDE-PHASE OUTPUT'):
-                    self.current_output = 'MAGNITUDE-PHASE'
+                    self.cur_output = 'MAGNITUDE-PHASE'
                 elif line.startswith('REAL OUTPUT'):
-                    self.current_output = 'REAL'
+                    self.cur_output = 'REAL'
 
                 # parse of frequency response results
                 if line.find('IDENTIFIED BY FREQUENCY') != -1:
@@ -113,9 +114,9 @@ class PchParser:
 
                 # parse entity id
                 if line.startswith('$POINT ID ='):
-                    self.current_entity_id = int(line[11:23].strip())
+                    self.cur_entity_id = int(line[11:23].strip())
                 elif line.startswith('$ELEMENT ID ='):
-                    self.current_entity_id = int(line[13:23].strip())
+                    self.cur_entity_id = int(line[13:23].strip())
                 elif line.startswith('$FREQUENCY = '):
                     self.current_frequency = float(line[12:28].strip())
 
@@ -127,7 +128,7 @@ class PchParser:
                 if line.startswith('$'):
                     continue
 
-                if self.request == 0:
+                if self.cur_request == 0:
                     raise NotImplementedError('Unknown request in the frame',
                                               'Check request type for the following string: %s' % line)
 
@@ -135,54 +136,48 @@ class PchParser:
                 line = line.replace('G', ' ')
                 if line.startswith('-CONT-'):
                     line = line.replace('-CONT-', '')
-                    self.current_data_chunks += [float(_) for _ in line.split()]
+                    self.cur_data_chunks += [float(_) for _ in line.split()]
                 else:
                     # insert the last frame
                     self.insert_current_frame()
 
                     # update the last frame with a new data
-                    self.current_data_chunks = [float(_) for _ in line.split()]
+                    self.cur_data_chunks = [float(_) for _ in line.split()]
 
             # last block remaining in memory
             self.insert_current_frame()
 
     def insert_current_frame(self):
         # last block remaining in memory
-        if len(self.current_data_chunks) > 0:
-            if self.current_subcase not in self.parsed_data[self.request]:
-                self.parsed_data[self.request][self.current_subcase] = {}
-                self.parsed_data['FREQUENCY'][self.current_subcase] = {}
+        if len(self.cur_data_chunks) > 0:
+            # ensure that subcase is allocated in the dataset
+            if self.cur_subcase not in self.parsed_data[self.cur_request]:
+                self.parsed_data[self.cur_request][self.cur_subcase] = {}
+                self.parsed_data['FREQUENCY'][self.cur_subcase] = {}
 
+            values = parse_data_chunks(self.cur_request, self.cur_output, self.cur_data_chunks[1:])
             if self.is_frequency_response:
-                values = []
                 # incremented by frequency, entity is given
                 if self.output_sort == 2:
-                    self.current_frequency = self.current_data_chunks[0]
-                    values = self.current_data_chunks[1:]
-
+                    self.current_frequency = self.cur_data_chunks[0]
                 # incremented by entity, frequency is given
                 elif self.output_sort == 1:
-                    self.current_entity_id = int(self.current_data_chunks[0])
-                    values = self.current_data_chunks[1:]
+                    self.cur_entity_id = int(self.cur_data_chunks[0])
 
                 # insert frequency in the database
-                if self.current_frequency not in self.parsed_data['FREQUENCY'][self.current_subcase]:
-                    self.parsed_data['FREQUENCY'][self.current_subcase][self.current_frequency] = len(self.parsed_data['FREQUENCY'][self.current_subcase])
+                if self.current_frequency not in self.parsed_data['FREQUENCY'][self.cur_subcase]:
+                    self.parsed_data['FREQUENCY'][self.cur_subcase][self.current_frequency] = \
+                        len(self.parsed_data['FREQUENCY'][self.cur_subcase])
 
-                # ensure that this dictionary exists
-                if self.current_entity_id not in self.parsed_data[self.request][self.current_subcase]:
-                    self.parsed_data[self.request][self.current_subcase][self.current_entity_id] = []
+                # ensure that dictionary for the entity exists
+                if self.cur_entity_id not in self.parsed_data[self.cur_request][self.cur_subcase]:
+                    self.parsed_data[self.cur_request][self.cur_subcase][self.cur_entity_id] = []
 
-                vector = parse_data_chunks(self.request, self.current_output, self.current_entity_type_id, values)
-                self.parsed_data[self.request][self.current_subcase][self.current_entity_id].append(vector)
+                self.parsed_data[self.cur_request][self.cur_subcase][self.cur_entity_id].append(values)
 
             else:
-                self.current_entity_id = int(self.current_data_chunks[0])
-                self.parsed_data[self.request][self.current_subcase][self.current_entity_id] = \
-                    parse_data_chunks(self.request,
-                                      self.current_output,
-                                      self.current_entity_type_id,
-                                      self.current_data_chunks[1:])
+                self.cur_entity_id = int(self.cur_data_chunks[0])
+                self.parsed_data[self.cur_request][self.cur_subcase][self.cur_entity_id] = values
 
     def health_check(self):
         frequency_steps = []
