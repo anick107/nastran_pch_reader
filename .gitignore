@@ -7,5 +7,10 @@
 # Idea cache
 /.idea/
 
+# Nastran files
+nastran_pch_reader/test-data/!*.pch
+nastran_pch_reader/test-data/!*.dat
+nastran_pch_reader/test-data/!*.bdf
+
 # Python egg metadata, regenerated from source files by setuptools.
 /*.egg-info
