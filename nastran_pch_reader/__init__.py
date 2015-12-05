@@ -20,6 +20,7 @@ Supported output types: real/imaginary, mag/phase
 """
 import cmath
 
+CONST_VALID_REQUESTS = ['ACCELERATION', 'DISPLACEMENTS', 'MPCF', 'SPCF', 'ELEMENT FORCES', 'ELEMENT STRAINS']
 
 def dispatch_parse(output, data_chunks):
     num = int(len(data_chunks) / 2)
@@ -36,9 +37,7 @@ def dispatch_parse(output, data_chunks):
 
 
 def parse_data_chunks(request, output, entity_type_id, data_chunks):
-    valid_requests = ['ACCELERATION', 'DISPLACEMENTS', 'MPCF', 'SPCF', 'ELEMENT FORCES', 'ELEMENT STRAINS']
-
-    if request in valid_requests:
+    if request in CONST_VALID_REQUESTS:
         return dispatch_parse(output, data_chunks)
     else:
         raise NotImplementedError("Request %s is not implemented", request)
@@ -58,6 +57,8 @@ class PchParser:
     def __init__(self, filename):
         # define the dictionary
         self.parsed_data = {'FREQUENCY': {}, 'SUBCASES': set()}
+        for request in CONST_VALID_REQUESTS:
+            self.parsed_data[request] = {}
 
         # initiate current frame
         self.reset_current_frame()
@@ -148,9 +149,6 @@ class PchParser:
     def insert_current_frame(self):
         # last block remaining in memory
         if len(self.current_data_chunks) > 0:
-            if self.request not in self.parsed_data:
-                self.parsed_data[self.request] = {}
-
             if self.current_subcase not in self.parsed_data[self.request]:
                 self.parsed_data[self.request][self.current_subcase] = {}
                 self.parsed_data['FREQUENCY'][self.current_subcase] = {}
@@ -192,6 +190,31 @@ class PchParser:
             frequency_steps.append(len(self.parsed_data['FREQUENCY'][subcase]))
         assert min(frequency_steps) == max(frequency_steps)
 
-    def get_data(self):
+    def get_subcases(self):
+        return sorted(self.parsed_data['SUBCASES'])
+
+    def __get_data_per_request(self, request, subcase):
         self.health_check()
-        return self.parsed_data
+        if subcase in self.parsed_data[request]:
+            return self.parsed_data[request][subcase]
+        else:
+            raise KeyError('%s data for subase %d is not found' % (request, subcase))
+
+    def get_accelerations(self, subcase):
+        return self.__get_data_per_request('ACCELERATION', subcase)
+
+    def get_displacements(self, subcase):
+        return self.__get_data_per_request('DISPLACEMENTS', subcase)
+
+    def get_mpcf(self, subcase):
+        return self.__get_data_per_request('MPCF', subcase)
+
+    def get_spcf(self, subcase):
+        return self.__get_data_per_request('SPCF', subcase)
+
+    def get_forces(self, subcase):
+        return self.__get_data_per_request('ELEMENT FORCES', subcase)
+
+    def get_frequencies(self):
+        return sorted(self.parsed_data['FREQUENCY'].keys())
+
