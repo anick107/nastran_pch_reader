@@ -24,24 +24,19 @@ CONST_VALID_REQUESTS = ['ACCELERATION', 'DISPLACEMENTS', 'MPCF', 'SPCF', 'ELEMEN
 
 
 def dispatch_parse(output, data_chunks):
-    num = int(len(data_chunks) / 2)
-    if len(data_chunks) % 2 != 0:
-        raise ValueError('Wrong number of chunks!',
-                         'Output: %s, num of chunks: %d' % (output, len(data_chunks)))
+    if output == 'MAGNITUDE-PHASE' or output == 'REAL-IMAGINARY':
+        num = int(len(data_chunks) / 2)
+        if len(data_chunks) % 2 != 0:
+            raise ValueError('Wrong number of chunks!', 'Output: %s, num of chunks: %d' % (output, len(data_chunks)))
+    else:
+        num = len(data_chunks)
 
     if output == 'MAGNITUDE-PHASE':
-        return [data_chunks[i]*cmath.exp(1j*data_chunks[i+num]) for i in range(num)]
+        return [data_chunks[i]*cmath.exp(1j*data_chunks[i+num]*cmath.pi/180.0) for i in range(num)]
     elif output == 'REAL-IMAGINARY':
         return [data_chunks[i] + 1j*data_chunks[i+num] for i in range(num)]
     else:
-        return [data_chunks[i] for i in range(len(data_chunks))]
-
-
-def parse_data_chunks(request, output, data_chunks):
-    if request in CONST_VALID_REQUESTS:
-        return dispatch_parse(output, data_chunks)
-    else:
-        raise NotImplementedError("Request %s is not implemented", request)
+        return [data_chunks[i] for i in range(num)]
 
 
 class PchParser:
@@ -53,9 +48,10 @@ class PchParser:
         self.cur_output = 0
         self.current_frequency = 0
         self.cur_entity_id = 0
-        self.current_entity_type_id = 0
+        self.cur_entity_type_id = 0
 
     def __init__(self, filename):
+        print ('Starting processing %s' % filename)
         # define the dictionary
         self.parsed_data = {'FREQUENCY': {}, 'SUBCASES': set()}
         for request in CONST_VALID_REQUESTS:
@@ -129,15 +125,14 @@ class PchParser:
 
                 # parse element type
                 if line.startswith('$ELEMENT TYPE ='):
-                    self.current_entity_type_id = int(line[15:27].strip())
+                    self.cur_entity_type_id = int(line[15:27].strip())
 
                 # ignore other comments
                 if line.startswith('$'):
                     continue
 
-                if self.cur_request == 0:
-                    raise NotImplementedError('Unknown request in the frame',
-                                              'Check request type for the following string: %s' % line)
+                # check if everything ok
+                self.validate()
 
                 # start data parsing
                 line = line.replace('G', ' ')
@@ -154,6 +149,13 @@ class PchParser:
             # last block remaining in memory
             self.insert_current_frame()
 
+    def validate(self):
+        if self.cur_request not in CONST_VALID_REQUESTS:
+            raise NotImplementedError("Request %s is not implemented", self.cur_request)
+
+        if self.cur_request == 'ELEMENT FORCES' and self.cur_entity_type_id not in [12, 102]:
+            raise NotImplementedError("Element forces parser is implemented only for CELAS2 and CBUSH elements!")
+
     def insert_current_frame(self):
         # last block remaining in memory
         if len(self.cur_data_chunks) > 0:
@@ -162,7 +164,7 @@ class PchParser:
                 self.parsed_data[self.cur_request][self.cur_subcase] = {}
                 self.parsed_data['FREQUENCY'][self.cur_subcase] = {}
 
-            values = parse_data_chunks(self.cur_request, self.cur_output, self.cur_data_chunks[1:])
+            values = dispatch_parse(self.cur_output, self.cur_data_chunks[1:])
             if self.is_frequency_response:
                 # incremented by frequency, entity is given
                 if self.output_sort == 2:
@@ -181,7 +183,6 @@ class PchParser:
                     self.parsed_data[self.cur_request][self.cur_subcase][self.cur_entity_id] = []
 
                 self.parsed_data[self.cur_request][self.cur_subcase][self.cur_entity_id].append(values)
-
             else:
                 self.cur_entity_id = int(self.cur_data_chunks[0])
                 self.parsed_data[self.cur_request][self.cur_subcase][self.cur_entity_id] = values
@@ -217,7 +218,7 @@ class PchParser:
     def get_forces(self, subcase):
         return self.__get_data_per_request('ELEMENT FORCES', subcase)
 
-    def get_frequencies(self):
-        return sorted(self.parsed_data['FREQUENCY'].keys())
+    def get_frequencies(self, subcase):
+        return sorted(self.parsed_data['FREQUENCY'][subcase])
 
 __all__ = ['PchParser']
