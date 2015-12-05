@@ -213,3 +213,4 @@ class PchParser:
     def get_frequencies(self):
         return sorted(self.parsed_data['FREQUENCY'].keys())
 
+__all__ = ['PchParser']
