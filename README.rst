@@ -9,7 +9,7 @@ Module currently support the following outputs:
  * representation for frequency response: real/imaginary and magnitude/phase
 
 
-Example:
+Example::
     import nastran_pch_reader
 
     parser = nastran_pch_reader.PchParser('test-data/sol101.pch')

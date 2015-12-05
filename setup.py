@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='nastran_pch_reader',
-      version='1.0.0',
+      version='1.0.2',
       description='NASTRAN punch file parser',
       url='https://github.com/anick107/nastran_pch_reader',
       author='Nikolay Asmolovskiy',
@@ -13,6 +13,7 @@ setup(name='nastran_pch_reader',
             'Topic :: Utilities',
             'Topic :: Text Processing'
       ],
+      py_modules=['nastran_pch_reader'],
       long_description=__doc__,
       author_email='nick.asmolovsky@gmail.com',
       license='BSD',
