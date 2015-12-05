@@ -3,7 +3,7 @@ from setuptools import setup
 setup(name='nastran_pch_reader',
       version='1.0.0',
       description='NASTRAN punch file parser',
-      url='http://github.com/storborg/funniest',
+      url='https://github.com/anick107/nastran_pch_reader',
       author='Nikolay Asmolovskiy',
       classifiers=[
             'Programming Language :: Python :: 3',
