@@ -1,23 +1,3 @@
-"""
-Parser for the NASTRAN punch files.
-
-Supported formats:
-- frequency response analysis
--- displacement
--- acceleration
--- element forces for CBUSH, CELAS
--- MPCF
--- SPCF
-Supported output types: real/imaginary, mag/phase
-
-
-- quasi-static results
--- displacement
--- element forces for CBUSH, CELAS
--- MPCF
--- SPCF
-
-"""
 import cmath
 
 CONST_VALID_REQUESTS = ['ACCELERATION', 'DISPLACEMENTS', 'MPCF', 'SPCF', 'ELEMENT FORCES', 'ELEMENT STRAINS']
@@ -51,7 +31,6 @@ class PchParser:
         self.cur_entity_type_id = 0
 
     def __init__(self, filename):
-        print ('Starting processing %s' % filename)
         # define the dictionary
         self.parsed_data = {'FREQUENCY': {}, 'SUBCASES': set()}
         for request in CONST_VALID_REQUESTS:
@@ -220,5 +199,3 @@ class PchParser:
 
     def get_frequencies(self, subcase):
         return sorted(self.parsed_data['FREQUENCY'][subcase])
-
-__all__ = ['PchParser']
