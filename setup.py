@@ -7,16 +7,13 @@ setup(name='nastran_pch_reader',
       author='Nikolay Asmolovskiy',
       classifiers=[
             'Programming Language :: Python :: 3',
-            'Intended Audience :: Structural Engineers',
-            'License :: OSI Approved :: MIT License',
+            'Intended Audience :: Other Audience',
+            'License :: OSI Approved :: BSD License',
             'Topic :: Software Development :: Libraries',
             'Topic :: Utilities',
-            'Topic :: FEM',
-            'Topic :: Parsers',
-            'Topic :: Text Processing :: Punch'
+            'Topic :: Text Processing'
       ],
       long_description=__doc__,
       author_email='nick.asmolovsky@gmail.com',
       license='BSD',
-      packages=['nastran_pch_reader'],
       zip_safe=False)
